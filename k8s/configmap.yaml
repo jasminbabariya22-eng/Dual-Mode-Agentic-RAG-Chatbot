@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-chatbot-config
+  namespace: default
+data:
+  APP_ENV: "production"
+  DEBUG: "False"
+  LOG_LEVEL: "INFO"
+  HOST: "0.0.0.0"
+  PORT: "8000"
+  LLM_PROVIDER: "ollama"
+  LLM_MODEL: "qwen2.5:0.5b-instruct"
+  ENABLE_FALLBACK_MODEL: "True"
+  FALLBACK_PROVIDER: "groq"
+  FALLBACK_MODEL: "llama-3.3-70b-versatile"
+  LLM_TEMPERATURE: "0.0"
+  LLM_TIMEOUT: "120"
+  LLM_MAX_RETRIES: "2"
+  LLM_STREAMING: "True"
+  LLM_MAX_TOKENS: "4096"
+  ENABLE_MEMORY: "True"
+  ENABLE_GUARDRAILS: "True"
+  ENABLE_SQL_VALIDATION: "True"
+  PROMETHEUS_PORT: "9090"
+  OLLAMA_BASE_URL: "http://ollama:11434"
+  REDIS_URL: "redis://rag-redis:6379/0"
