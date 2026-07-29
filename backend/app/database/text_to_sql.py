@@ -12,9 +12,7 @@ from backend.app.core.cache import cache_manager
 from backend.app.database.db import execute_sql_query
 from backend.app.database.schema import schema_manager
 
-# ======================================================================
 # Pydantic Schemas
-# ======================================================================
 
 class SQLValidationResult(BaseModel):
     """Pydantic model representing SQL validation checks results."""
@@ -49,9 +47,7 @@ class SQLValidationException(Exception):
         super().__init__(f"SQL validation checks failed: {', '.join(validation_result.errors)}")
         self.validation_result = validation_result
 
-# ======================================================================
 # Helper Utilities
-# ======================================================================
 
 def parse_relative_dates(question: str) -> str:
     """Helper to detect relative date terms in question and generate helper instructions."""
@@ -105,9 +101,7 @@ def sanitize_sql(sql: str) -> str:
     
     return cleaned.strip()
 
-# ======================================================================
 # SQL Validator
-# ======================================================================
 
 class SQLValidator:
     """Checks generated SQLite queries for correctness, injection vectors, and catalog alignment."""
@@ -205,9 +199,7 @@ class SQLValidator:
             cleaned_sql=sql_to_check
         )
 
-# ======================================================================
 # SQL Generation Engine
-# ======================================================================
 
 class TextToSQLEngine:
     """Handles text-to-SQL generation, strong validation, caching, and execution."""

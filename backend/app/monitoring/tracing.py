@@ -1,31 +1,3 @@
-"""
-Optional OpenTelemetry Tracing Support.
-
-Tracing is activated only when OTEL environment variables are present.
-If they are absent the entire module is a lightweight no-op — no external
-library is required at runtime.
-
-Activation:
-    Set either of these environment variables before starting the server:
-        OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-        OTEL_SERVICE_NAME=rag-chatbot          (optional, defaults to APP_NAME)
-
-Usage (in nodes / handlers — optional):
-    from backend.app.monitoring.tracing import trace_span
-
-    async with trace_span("router_classification") as span:
-        span.set_attribute("question.length", len(question))
-        result = await router.route(question)
-
-If tracing is disabled, trace_span is a no-op async context manager.
-
-Design decisions:
-  - All imports are guarded by try/except so the module loads cleanly even
-    when opentelemetry packages are absent.
-  - setup_tracing() is idempotent — calling it twice is safe.
-  - FastAPIInstrumentor auto-instruments all HTTP spans when OTEL is enabled.
-"""
-
 import os
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Optional
@@ -35,7 +7,6 @@ from backend.app.core.logger import logger
 
 # Whether tracing has been successfully initialised
 _tracing_enabled: bool = False
-
 
 def setup_tracing(app: Any) -> bool:
     """
@@ -90,11 +61,9 @@ def setup_tracing(app: Any) -> bool:
         logger.error("[Tracing] Failed to configure tracing: %s", exc)
         return False
 
-
 def is_tracing_enabled() -> bool:
     """Return True if OpenTelemetry tracing was successfully configured."""
     return _tracing_enabled
-
 
 @asynccontextmanager
 async def trace_span(name: str, **attributes: Any) -> AsyncGenerator[Any, None]:
@@ -127,7 +96,6 @@ async def trace_span(name: str, **attributes: Any) -> AsyncGenerator[Any, None]:
             yield span
     except Exception:
         yield _NoOpSpan()
-
 
 class _NoOpSpan:
     """Minimal no-op span object returned when tracing is disabled."""

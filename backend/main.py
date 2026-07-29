@@ -1,11 +1,3 @@
-"""
-FastAPI Application Entry Point.
-
-Mounts all API routers and configures global middleware, CORS,
-exception handlers, OpenAPI documentation metadata, Prometheus metrics,
-and optional OpenTelemetry tracing.
-"""
-
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -23,9 +15,7 @@ from backend.app.monitoring.health import router as health_router
 from backend.app.monitoring.middleware import ObservabilityMiddleware
 from backend.app.monitoring.tracing import setup_tracing
 
-# ---------------------------------------------------------------------------
 # Application factory
-# ---------------------------------------------------------------------------
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -40,17 +30,13 @@ app = FastAPI(
     openapi_url="/openapi.json" if settings.APP_ENV != "production" or settings.DEBUG else None,
 )
 
-# ---------------------------------------------------------------------------
 # Rate Limiting
-# ---------------------------------------------------------------------------
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# ---------------------------------------------------------------------------
 # CORS middleware  (must be added before observability so CORS headers appear
 # even on requests that fail at the middleware layer)
-# ---------------------------------------------------------------------------
 
 app.add_middleware(
     CORSMiddleware,
@@ -65,9 +51,7 @@ app.add_middleware(
     allowed_hosts=["*"] if settings.APP_ENV != "production" else ["yourdomain.com", "*.yourdomain.com", "localhost", "127.0.0.1"]
 )
 
-# ---------------------------------------------------------------------------
 # Security Headers & Size Limit Middleware
-# ---------------------------------------------------------------------------
 
 class SecurityMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -86,36 +70,25 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityMiddleware)
 
-# ---------------------------------------------------------------------------
 # Observability middleware  (wraps every request for metrics + logging)
-# ---------------------------------------------------------------------------
 
 app.add_middleware(ObservabilityMiddleware)
 
-# ---------------------------------------------------------------------------
 # Prometheus metrics endpoint  (mounted as a sub-application at /metrics)
-# ---------------------------------------------------------------------------
 
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
-# ---------------------------------------------------------------------------
 # Routers
-# ---------------------------------------------------------------------------
 
 app.include_router(chat_router, prefix="/api/v1")
 app.include_router(health_router)   # prefix="/health" is set inside the router
 
-# ---------------------------------------------------------------------------
 # Optional OpenTelemetry tracing
-# ---------------------------------------------------------------------------
 
 setup_tracing(app)
 
-# ---------------------------------------------------------------------------
 # Global exception handlers
-# ---------------------------------------------------------------------------
-
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -129,10 +102,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         content={"error": "Internal server error", "detail": detail},
     )
 
-
-# ---------------------------------------------------------------------------
 # Uvicorn entry point (python -m backend.main)
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     import uvicorn

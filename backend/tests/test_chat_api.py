@@ -1,18 +1,3 @@
-"""
-Tests for the Chat API layer.
-
-All external dependencies (LangGraph workflow, memory store, LLM) are fully
-mocked so tests are fast, deterministic, and self-contained.
-
-Coverage:
-    - POST /api/v1/chat  (normal chat, RAG / SQL / Hybrid routes)
-    - POST /api/v1/chat  (validation errors, blank question, too-long question)
-    - POST /api/v1/chat  (workflow exception → HTTP 500)
-    - POST /api/v1/chat  (session memory persistence)
-    - POST /api/v1/chat/stream  (SSE streaming, memory persistence after stream)
-    - Memory backends     (InMemoryMemory, RedisMemory fallback)
-"""
-
 import asyncio
 import json
 import uuid
@@ -26,9 +11,7 @@ from httpx import AsyncClient, ASGITransport
 from backend.main import app
 from backend.app.memory.memory import InMemoryMemory, _format_messages, MAX_TURNS, MAX_MESSAGES
 
-# ---------------------------------------------------------------------------
 # Fixtures
-# ---------------------------------------------------------------------------
 
 # Shared default workflow result used across multiple tests
 _DEFAULT_WORKFLOW_RESULT: Dict[str, Any] = {
@@ -51,12 +34,10 @@ _DEFAULT_WORKFLOW_RESULT: Dict[str, Any] = {
     "stream_queue": None,
 }
 
-
 @pytest.fixture
 def client() -> TestClient:
     """Synchronous TestClient for non-streaming tests."""
     return TestClient(app, raise_server_exceptions=False)
-
 
 @pytest.fixture
 def mock_workflow_rag():
@@ -65,7 +46,6 @@ def mock_workflow_rag():
     with patch("backend.app.api.chat.agent_workflow") as mock_wf:
         mock_wf.ainvoke = AsyncMock(return_value=result)
         yield mock_wf, result
-
 
 @pytest.fixture
 def mock_workflow_sql():
@@ -83,7 +63,6 @@ def mock_workflow_sql():
         mock_wf.ainvoke = AsyncMock(return_value=result)
         yield mock_wf, result
 
-
 @pytest.fixture
 def mock_workflow_hybrid():
     """Patch agent_workflow.ainvoke with a successful Hybrid result."""
@@ -100,7 +79,6 @@ def mock_workflow_hybrid():
         mock_wf.ainvoke = AsyncMock(return_value=result)
         yield mock_wf, result
 
-
 @pytest.fixture
 def mock_memory():
     """Patch the module-level memory_store in chat.py with an InMemoryMemory."""
@@ -108,11 +86,7 @@ def mock_memory():
     with patch("backend.app.api.chat.memory_store", new=mem):
         yield mem
 
-
-# ---------------------------------------------------------------------------
 # POST /api/v1/chat — Normal chat / route tests
-# ---------------------------------------------------------------------------
-
 
 def test_chat_rag_route(client: TestClient, mock_workflow_rag, mock_memory):
     """Happy path: RAG route returns sources, empty SQL fields."""
@@ -135,7 +109,6 @@ def test_chat_rag_route(client: TestClient, mock_workflow_rag, mock_memory):
     assert "session_id" in body
     assert body["execution_metrics"]["router_time_ms"] == pytest.approx(10.0)
 
-
 def test_chat_sql_route(client: TestClient, mock_workflow_sql, mock_memory):
     """Happy path: SQL route returns sql_query and sql_result rows."""
     mock_wf, result = mock_workflow_sql
@@ -153,7 +126,6 @@ def test_chat_sql_route(client: TestClient, mock_workflow_sql, mock_memory):
     assert body["sources"] == []
     assert body["answer"] == "There are 42 orders in total."
 
-
 def test_chat_hybrid_route(client: TestClient, mock_workflow_hybrid, mock_memory):
     """Happy path: Hybrid route returns both sources and SQL result."""
     mock_wf, result = mock_workflow_hybrid
@@ -170,11 +142,7 @@ def test_chat_hybrid_route(client: TestClient, mock_workflow_hybrid, mock_memory
     assert body["sql_query"] == "SELECT * FROM orders WHERE product = 'Laptop Stand'"
     assert body["sql_result"] == [{"order_id": "ORD-001", "status": "Pending"}]
 
-
-# ---------------------------------------------------------------------------
 # POST /api/v1/chat — Session ID handling
-# ---------------------------------------------------------------------------
-
 
 def test_chat_generates_session_id_when_missing(client: TestClient, mock_workflow_rag, mock_memory):
     """When no session_id is supplied a UUID is auto-generated."""
@@ -187,7 +155,6 @@ def test_chat_generates_session_id_when_missing(client: TestClient, mock_workflo
     parsed = uuid.UUID(sid, version=4)
     assert str(parsed) == sid
 
-
 def test_chat_uses_provided_session_id(client: TestClient, mock_workflow_rag, mock_memory):
     """When a session_id is supplied it is echoed back unchanged."""
     response = client.post(
@@ -198,40 +165,29 @@ def test_chat_uses_provided_session_id(client: TestClient, mock_workflow_rag, mo
     assert response.status_code == 200
     assert response.json()["session_id"] == "my-custom-session"
 
-
-# ---------------------------------------------------------------------------
 # POST /api/v1/chat — Input validation errors
-# ---------------------------------------------------------------------------
-
 
 def test_chat_rejects_empty_question(client: TestClient):
     """A blank question must return 422 Validation Error."""
     response = client.post("/api/v1/chat", json={"question": ""})
     assert response.status_code == 422
 
-
 def test_chat_rejects_whitespace_only_question(client: TestClient):
     """A whitespace-only question must return 422 Validation Error."""
     response = client.post("/api/v1/chat", json={"question": "   "})
     assert response.status_code == 422
-
 
 def test_chat_rejects_missing_question_field(client: TestClient):
     """Missing 'question' field must return 422 Validation Error."""
     response = client.post("/api/v1/chat", json={})
     assert response.status_code == 422
 
-
 def test_chat_rejects_question_exceeding_max_length(client: TestClient):
     """A question longer than 2000 characters must return 422 Validation Error."""
     response = client.post("/api/v1/chat", json={"question": "x" * 2001})
     assert response.status_code == 422
 
-
-# ---------------------------------------------------------------------------
 # POST /api/v1/chat — Workflow exception → HTTP 500
-# ---------------------------------------------------------------------------
-
 
 def test_chat_returns_500_on_workflow_exception(client: TestClient, mock_memory):
     """An unhandled workflow exception must surface as HTTP 500."""
@@ -242,11 +198,7 @@ def test_chat_returns_500_on_workflow_exception(client: TestClient, mock_memory)
 
     assert response.status_code == 500
 
-
-# ---------------------------------------------------------------------------
 # POST /api/v1/chat — Memory persistence
-# ---------------------------------------------------------------------------
-
 
 def test_chat_persists_turn_to_memory(client: TestClient, mock_workflow_rag, mock_memory):
     """After a successful chat, human + assistant turns are saved to memory."""
@@ -261,7 +213,6 @@ def test_chat_persists_turn_to_memory(client: TestClient, mock_workflow_rag, moc
     history = mock_memory.get_history(session_id)
     assert "What is the warranty?" in history
     assert "The laptop warranty period is 12 months." in history
-
 
 def test_chat_injects_history_into_state(client: TestClient, mock_memory):
     """On the second turn, conversation history is injected into workflow state."""
@@ -286,11 +237,7 @@ def test_chat_injects_history_into_state(client: TestClient, mock_memory):
     assert "First question about leave." in captured_state.get("conversation_history", "")
     assert "Leave is 15 days." in captured_state.get("conversation_history", "")
 
-
-# ---------------------------------------------------------------------------
 # POST /api/v1/chat/stream — SSE streaming
-# ---------------------------------------------------------------------------
-
 
 @pytest.mark.asyncio
 async def test_chat_stream_yields_tokens():
@@ -339,7 +286,6 @@ async def test_chat_stream_yields_tokens():
     tokens = [json.loads(e)["token"] for e in token_events]
     assert "".join(tokens) == "Hello World!"
 
-
 @pytest.mark.asyncio
 async def test_chat_stream_persists_memory_after_done():
     """Memory must be saved after the full stream completes."""
@@ -375,7 +321,6 @@ async def test_chat_stream_persists_memory_after_done():
     assert "Tell me about returns" in history
     assert "Streamed answer text." in history
 
-
 @pytest.mark.asyncio
 async def test_chat_stream_validation_error():
     """Empty question to the stream endpoint should return 422."""
@@ -387,11 +332,7 @@ async def test_chat_stream_validation_error():
         )
     assert response.status_code == 422
 
-
-# ---------------------------------------------------------------------------
 # Memory unit tests
-# ---------------------------------------------------------------------------
-
 
 class TestInMemoryMemory:
     """Unit tests for InMemoryMemory."""
@@ -430,7 +371,6 @@ class TestInMemoryMemory:
     def test_clear_nonexistent_session_does_not_raise(self):
         mem = InMemoryMemory()
         mem.clear("nonexistent")  # Should not raise
-
 
 class TestFormatMessages:
     """Unit tests for the _format_messages helper."""

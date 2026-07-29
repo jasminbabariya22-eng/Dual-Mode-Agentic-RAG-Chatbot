@@ -1,18 +1,3 @@
-"""
-Conversation Memory Layer.
-
-Provides pluggable session memory backends for multi-turn conversation history.
-Supports in-process storage (InMemoryMemory) and Redis (RedisMemory), with
-automatic graceful fallback from Redis to in-memory on connection failure.
-
-Design decisions:
-- BaseMemory defines the contract so backends are interchangeable.
-- History is stored as a list of {role, content} dicts internally.
-- get_history() always returns a formatted string ready for LLM prompt injection.
-- A hard cap of MAX_TURNS=10 (20 messages) prevents token-budget blow-out.
-- Redis keys use a namespaced prefix to avoid collisions with other cache users.
-"""
-
 import json
 from abc import ABC, abstractmethod
 from typing import Dict, List
@@ -26,7 +11,6 @@ from backend.app.core.logger import logger
 MAX_TURNS: int = 10
 # Each turn = 2 messages, so the raw list cap is:
 MAX_MESSAGES: int = MAX_TURNS * 2
-
 
 class BaseMemory(ABC):
     """Abstract base class defining the conversation memory contract."""
@@ -59,7 +43,6 @@ class BaseMemory(ABC):
     def clear(self, session_id: str) -> None:
         """Delete all stored history for the given session."""
 
-
 def _format_messages(messages: List[Dict[str, str]]) -> str:
     """
     Convert a list of message dicts into the canonical H:/A: format.
@@ -79,7 +62,6 @@ def _format_messages(messages: List[Dict[str, str]]) -> str:
         role_label = "H" if msg["role"] == "human" else "A"
         parts.append(f"{role_label}:\n{msg['content']}")
     return "\n\n".join(parts)
-
 
 class InMemoryMemory(BaseMemory):
     """
@@ -109,7 +91,6 @@ class InMemoryMemory(BaseMemory):
 
     def clear(self, session_id: str) -> None:
         self._storage.pop(session_id, None)
-
 
 class RedisMemory(BaseMemory):
     """
@@ -181,9 +162,6 @@ class RedisMemory(BaseMemory):
             logger.error("[Memory] Redis clear failed (%s). Using fallback.", exc)
             self._fallback.clear(session_id)
 
-
-# ---------------------------------------------------------------------------
 # Module-level singleton — imported by the API layer.
-# ---------------------------------------------------------------------------
 
 memory_store: BaseMemory = RedisMemory()

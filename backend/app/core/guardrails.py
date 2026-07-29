@@ -1,8 +1,3 @@
-"""
-Core guardrails facade.
-Provides a central import location if needed by the workflow.
-"""
-
 from backend.app.guardrails.validator import validate_question, validate_sql
 from backend.app.guardrails.prompt_guard import detect_prompt_injection
 from backend.app.guardrails.detector import detect_jailbreak

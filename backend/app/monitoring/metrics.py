@@ -1,21 +1,6 @@
-"""
-Prometheus Metrics Registry.
-
-Defines every application metric as a module-level singleton.
-All other modules import the metric objects from here to record observations.
-
-Design decisions:
-- Single registry avoids duplicate-metric errors across test runs via REGISTRY.
-- All histograms use meaningful bucket boundaries tuned to LLM latencies (ms → s).
-- Labels are kept narrow — avoid high-cardinality labels like session_id.
-- Counters never decrease; use Gauge for values that can go up and down (active sessions).
-"""
-
 from prometheus_client import Counter, Gauge, Histogram, REGISTRY
 
-# ---------------------------------------------------------------------------
 # HTTP layer
-# ---------------------------------------------------------------------------
 
 HTTP_REQUESTS_TOTAL = Counter(
     "http_requests_total",
@@ -30,9 +15,7 @@ HTTP_REQUEST_DURATION_SECONDS = Histogram(
     buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0),
 )
 
-# ---------------------------------------------------------------------------
 # Workflow pipeline
-# ---------------------------------------------------------------------------
 
 WORKFLOW_DURATION_SECONDS = Histogram(
     "workflow_duration_seconds",
@@ -83,9 +66,7 @@ REQUESTS_BY_ROUTE_TOTAL = Counter(
     labelnames=["route"],
 )
 
-# ---------------------------------------------------------------------------
 # Cache
-# ---------------------------------------------------------------------------
 
 CACHE_HITS_TOTAL = Counter(
     "cache_hits_total",
@@ -99,9 +80,7 @@ CACHE_MISSES_TOTAL = Counter(
     labelnames=["cache_type"],
 )
 
-# ---------------------------------------------------------------------------
 # Errors
-# ---------------------------------------------------------------------------
 
 ERRORS_TOTAL = Counter(
     "errors_total",
@@ -109,18 +88,14 @@ ERRORS_TOTAL = Counter(
     labelnames=["component", "error_type"],
 )
 
-# ---------------------------------------------------------------------------
 # Connections / availability
-# ---------------------------------------------------------------------------
 
 REDIS_AVAILABLE = Gauge(
     "redis_available",
     "1 if Redis is reachable, 0 if using in-memory fallback.",
 )
 
-# ---------------------------------------------------------------------------
 # Session / streaming
-# ---------------------------------------------------------------------------
 
 ACTIVE_SESSIONS_GAUGE = Gauge(
     "active_sessions_total",
@@ -132,10 +107,7 @@ STREAMING_REQUESTS_TOTAL = Counter(
     "Total streaming (SSE) requests received.",
 )
 
-
-# ---------------------------------------------------------------------------
 # Convenience helpers used by the API layer
-# ---------------------------------------------------------------------------
 
 def record_workflow_metrics(execution_metrics: dict, route: str) -> None:
     """

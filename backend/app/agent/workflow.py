@@ -20,12 +20,10 @@ from backend.app.core.guardrails import (
     verify_answer_against_context
 )
 
-# ======================================================================
 # AgentState Definition
-# ======================================================================
 
 class AgentState(TypedDict):
-    """LangGraph State representation containing all context variables transferred across nodes."""
+    # This state keeps track of everything as we pass it around the nodes
     question: str
     route: str
     rag_context: str
@@ -37,9 +35,7 @@ class AgentState(TypedDict):
     conversation_history: str
     stream_queue: Optional[Any]
 
-# ======================================================================
 # Prompt Templates
-# ======================================================================
 
 ANSWER_PROMPT_TEMPLATE = """You are a helpful, expert customer support assistant for a Dual-Mode Agentic RAG Chatbot.
 Your task is to generate a comprehensive, accurate, and markdown-formatted answer to the user's question.
@@ -69,9 +65,7 @@ CRITICAL GUIDELINES:
 
 Final Answer:"""
 
-# ======================================================================
 # Shared Component Instantiation
-# ======================================================================
 
 @lru_cache()
 def get_router() -> AgentRouter:
@@ -85,25 +79,10 @@ def get_retriever() -> HybridRetriever:
 def get_sql_engine() -> TextToSQLEngine:
     return TextToSQLEngine()
 
-# ======================================================================
 # Heuristics & Execution Helpers
-# ======================================================================
-
 
 def _extract_content(response: Any) -> str:
-    """
-    Safely extract plain-text content from any LangChain LLM response type.
-
-    LangChain chat models return different types depending on provider and
-    version: AIMessage, ChatResult, str, dict, list-of-content-blocks, etc.
-    This helper handles every observed variant without raising.
-
-    Args:
-        response: The raw value returned by llm.ainvoke() / llm.astream() chunk.
-
-    Returns:
-        The extracted text, or an empty string if nothing could be extracted.
-    """
+    # Digs through the messy LLM response to pull out the plain text we need
     if response is None:
         logger.warning("[LLM] Response is None — no content to extract.")
         return ""
@@ -151,7 +130,7 @@ def _extract_content(response: Any) -> str:
     return str(response)
 
 async def run_rag_retrieval(question: str) -> Dict[str, Any]:
-    """Helper to perform policy documents search and format output text."""
+    # Look up the question in our PDF documents to see what the company policies say
     start_time = time.perf_counter()
     retriever = get_retriever()
     try:
@@ -177,7 +156,7 @@ async def run_rag_retrieval(question: str) -> Dict[str, Any]:
         }
 
 async def run_sql_execution(question: str) -> Dict[str, Any]:
-    """Helper to run text-to-SQL generation and execute outputs against database."""
+    # Convert the user's question into SQL and run it against our database
     sql_engine = get_sql_engine()
     try:
         # execute_and_format is async, so we await directly
@@ -206,12 +185,10 @@ async def run_sql_execution(question: str) -> Dict[str, Any]:
             "sql_execution_time_ms": 0.0
         }
 
-# ======================================================================
 # Graph Nodes
-# ======================================================================
 
 async def router_node(state: AgentState) -> Dict[str, Any]:
-    """Classifies user question to determine routing path (RAG, SQL, or Hybrid)."""
+    # This node figures out if we need to search PDFs, run SQL, or do both!
     start_time = time.perf_counter()
     metrics = state.get("execution_metrics", {})
     if not metrics:
@@ -295,7 +272,7 @@ async def hybrid_node(state: AgentState) -> Dict[str, Any]:
     }
 
 async def answer_node(state: AgentState) -> Dict[str, Any]:
-    """Generates the final response based on context collected in State."""
+    # Generates the final response based on context collected in State
     start_time = time.perf_counter()
     metrics = state.get("execution_metrics", {})
 
@@ -317,9 +294,7 @@ async def answer_node(state: AgentState) -> Dict[str, Any]:
     else:
         sql_result = raw_sql_result
 
-    # ---------------------------------------------------------------
     # Diagnostic prompt-building log
-    # ---------------------------------------------------------------
     logger.info(
         "[Answer Node] Building prompt | question_len=%d context_len=%d "
         "history_len=%d sql_query_len=%d",
@@ -362,9 +337,7 @@ async def answer_node(state: AgentState) -> Dict[str, Any]:
 
     try:
         if queue and settings.LLM_STREAMING and hasattr(llm, "astream"):
-            # -------------------------------------------------------
             # Streaming path (POST /chat/stream)
-            # -------------------------------------------------------
             full_content: list[str] = []
             logger.info("[Answer Node] Starting streaming (astream)...")
             try:
@@ -397,9 +370,7 @@ async def answer_node(state: AgentState) -> Dict[str, Any]:
                 await queue.put(answer)
                 await queue.put(None)
         else:
-            # -------------------------------------------------------
             # Standard synchronous path (POST /chat)
-            # -------------------------------------------------------
             logger.info("[Answer Node] Calling llm.ainvoke()")
             response = await llm.ainvoke(prompt)
             logger.info("LLM call completed.")
@@ -449,9 +420,7 @@ async def answer_node(state: AgentState) -> Dict[str, Any]:
         "execution_metrics": metrics
     }
 
-# ======================================================================
 # Graph Routing Decision Logic
-# ======================================================================
 
 def route_decision(state: AgentState) -> str:
     """Dynamic routing mapper based on classification results stored in state."""
@@ -460,9 +429,7 @@ def route_decision(state: AgentState) -> str:
         return r
     return "rag"
 
-# ======================================================================
 # Guardrail Nodes
-# ======================================================================
 
 def input_validator_node(state: AgentState) -> dict:
     validate_question(state["question"])
@@ -512,9 +479,7 @@ def pydantic_validation_node(state: AgentState) -> dict:
     )
     return {}
 
-# ======================================================================
 # LangGraph Workflow Construction
-# ======================================================================
 
 workflow_graph = StateGraph(AgentState)
 

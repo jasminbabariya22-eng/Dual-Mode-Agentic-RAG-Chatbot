@@ -42,6 +42,8 @@ COPY --from=builder /root/.local /home/appuser/.local
 
 # Copy the application code
 COPY backend/ /app/backend/
+COPY orders.db /app/orders.db
+COPY chroma_db/ /app/chroma_db/
 
 # Set ownership
 RUN chown -R appuser:appuser /app

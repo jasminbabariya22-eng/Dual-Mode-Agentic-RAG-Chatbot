@@ -1,24 +1,9 @@
-"""
-LLM Factory
-
-Provides a single entry point for creating LangChain chat models.
-
-Primary Provider:
-    - Ollama (Local)
-
-Fallback Provider:
-    - Groq (Cloud)
-
-Designed for LangGraph and FastAPI applications.
-"""
-
 from typing import Optional
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from backend.app.config import settings
 from backend.app.core.logger import logger
-
 
 def _create_llm_instance(
     provider: str,
@@ -32,9 +17,7 @@ def _create_llm_instance(
 
     provider = provider.lower()
 
-    # ==========================================================
     # Ollama
-    # ==========================================================
     if provider == "ollama":
         from langchain_ollama import ChatOllama
 
@@ -44,9 +27,7 @@ def _create_llm_instance(
             temperature=settings.LLM_TEMPERATURE,
         )
 
-    # ==========================================================
     # Groq
-    # ==========================================================
     elif provider == "groq":
         from langchain_groq import ChatGroq
 
@@ -59,9 +40,7 @@ def _create_llm_instance(
             max_retries=settings.LLM_MAX_RETRIES,
         )
 
-    # ==========================================================
     # OpenAI (Optional)
-    # ==========================================================
     elif provider == "openai":
         from langchain_openai import ChatOpenAI
 
@@ -74,9 +53,7 @@ def _create_llm_instance(
             max_retries=settings.LLM_MAX_RETRIES,
         )
 
-    # ==========================================================
     # Gemini (Optional)
-    # ==========================================================
     elif provider == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -89,7 +66,6 @@ def _create_llm_instance(
 
     else:
         raise ValueError(f"Unsupported LLM Provider: {provider}")
-
 
 def get_llm(use_fallback: bool = True) -> BaseChatModel:
     """

@@ -1,23 +1,3 @@
-"""
-Chat API Router.
-
-Exposes the LangGraph dual-mode agentic RAG workflow via two FastAPI endpoints:
-
-    POST /chat         — Standard JSON request / response.
-    POST /chat/stream  — Server-Sent Events (SSE) token stream.
-
-Design decisions:
-- All heavy orchestration lives in the workflow; this module is *only* an adapter.
-- Session memory is injected into the initial graph state so history reaches the
-  answer node without polluting the router, retriever, or SQL engine nodes.
-- A unique request_id (UUID4) is attached to every request for distributed tracing.
-- Streaming uses asyncio.Queue to bridge the synchronous LangGraph run and the
-  async SSE generator.  If the LLM does not support streaming, the workflow falls
-  back to ainvoke automatically (see workflow.py answer_node).
-- All exceptions are caught at the router level and translated to structured JSON
-  error responses with appropriate HTTP status codes.
-"""
-
 import asyncio
 import json
 import time
@@ -36,16 +16,11 @@ from backend.app.monitoring.metrics import ERRORS_TOTAL, record_workflow_metrics
 from backend.app.core.guardrails import GuardrailException, OutputValidationException
 from backend.app.core.logger import logger, session_id_var
 
-# ---------------------------------------------------------------------------
 # Router
-# ---------------------------------------------------------------------------
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
-# ---------------------------------------------------------------------------
 # Request / Response Pydantic models
-# ---------------------------------------------------------------------------
-
 
 class ChatRequest(BaseModel):
     """
@@ -78,7 +53,6 @@ class ChatRequest(BaseModel):
             raise ValueError("question must not be blank or whitespace-only.")
         return v.strip()
 
-
 class ExecutionMetrics(BaseModel):
     """Latency breakdown for each pipeline stage (milliseconds)."""
 
@@ -88,7 +62,6 @@ class ExecutionMetrics(BaseModel):
     sql_execution_time_ms: float = 0.0
     answer_generation_time_ms: float = 0.0
     total_execution_time_ms: float = 0.0
-
 
 class ChatResponse(BaseModel):
     """
@@ -118,7 +91,6 @@ class ChatResponse(BaseModel):
         description="Rows returned by the SQL query execution.",
     )
 
-
 class ErrorResponse(BaseModel):
     """Structured error envelope returned on 4xx / 5xx responses."""
 
@@ -126,11 +98,7 @@ class ErrorResponse(BaseModel):
     error: str
     detail: str
 
-
-# ---------------------------------------------------------------------------
 # Internal helpers
-# ---------------------------------------------------------------------------
-
 
 def _extract_sources(rag_context: str) -> List[str]:
     """
@@ -153,7 +121,6 @@ def _extract_sources(rag_context: str) -> List[str]:
             if citation:
                 seen[citation] = None
     return list(seen.keys())
-
 
 def _parse_sql_result(sql_result_raw: Any) -> List[Dict[str, Any]]:
     """
@@ -183,7 +150,6 @@ def _parse_sql_result(sql_result_raw: Any) -> List[Dict[str, Any]]:
     except (json.JSONDecodeError, ValueError):
         return []
 
-
 def _build_initial_state(
     question: str,
     conversation_history: str,
@@ -203,7 +169,6 @@ def _build_initial_state(
         stream_queue=stream_queue,
     )
 
-
 def _metrics_from_dict(raw: dict) -> ExecutionMetrics:
     """Safely build an ExecutionMetrics model from the raw workflow dict."""
     return ExecutionMetrics(
@@ -215,11 +180,7 @@ def _metrics_from_dict(raw: dict) -> ExecutionMetrics:
         total_execution_time_ms=raw.get("total_execution_time_ms", 0.0),
     )
 
-
-# ---------------------------------------------------------------------------
 # POST /chat — Standard (non-streaming) endpoint
-# ---------------------------------------------------------------------------
-
 
 @router.post(
     "",
@@ -339,18 +300,13 @@ async def chat(request: ChatRequest) -> ChatResponse:
         sql_result=_parse_sql_result(result.get("sql_result", "")),
     )
 
-
-# ---------------------------------------------------------------------------
 # POST /chat/stream — Server-Sent Events streaming endpoint
-# ---------------------------------------------------------------------------
-
 
 async def _sse_event(data: str) -> str:
     """Encode a string as a well-formed SSE ``data:`` line."""
     # Escape embedded newlines so they don't break the SSE framing.
     payload = data.replace("\n", "\\n")
     return f"data: {payload}\n\n"
-
 
 async def _token_generator(
     question: str,
@@ -460,7 +416,6 @@ async def _token_generator(
                 logger.warning("[Chat Stream] Memory save failed: %s", mem_exc)
 
     yield "data: [DONE]\n\n"
-
 
 @router.post(
     "/stream",

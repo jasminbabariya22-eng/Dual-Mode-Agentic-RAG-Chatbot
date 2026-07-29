@@ -77,14 +77,12 @@ class BM25Retriever:
             
         return sorted(scores, key=lambda x: x[1], reverse=True)
 
-
 class CitationFormatter:
     """Handles parsing and formatting citations for responses."""
     
     @staticmethod
     def format(source: str, page: int) -> str:
         return f"[{source} (Page {page})]"
-
 
 class HybridRetriever:
     """Orchestrates Dense (ChromaDB) and Sparse (BM25) search, fuses rankings with RRF, and reranks."""

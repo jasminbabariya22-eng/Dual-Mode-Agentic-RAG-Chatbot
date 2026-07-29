@@ -1,24 +1,3 @@
-"""
-Health & Readiness Probe Endpoints.
-
-Three endpoints surfaced under the /health prefix:
-
-    GET /health        — Liveness. Always returns 200 {"status":"healthy"}.
-    GET /health/live   — Alias for liveness.
-    GET /health/ready  — Readiness. Checks all downstream dependencies.
-
-Readiness check design:
-  - Each dependency is checked independently and in parallel (asyncio.gather).
-  - A failing Redis check yields "degraded" (not "failed") because the
-    in-memory fallback is always active.
-  - A failing LLM check yields "degraded" because the Groq fallback is
-    configured.
-  - SQLite failure or ChromaDB failure yields "unhealthy" — these are hard
-    dependencies with no fallback.
-  - Overall status: "healthy" if all ok, "degraded" if any DEGRADED, "unhealthy"
-    if any hard failure.  HTTP 200 for healthy/degraded, 503 for unhealthy.
-"""
-
 import asyncio
 import sqlite3
 import time
@@ -33,15 +12,11 @@ from backend.app.core.logger import logger
 
 router = APIRouter(prefix="/health", tags=["Health"])
 
-# ---------------------------------------------------------------------------
 # Response models
-# ---------------------------------------------------------------------------
-
 
 class CheckResult(BaseModel):
     status: str          # "ok" | "degraded" | "failed"
     detail: str = ""
-
 
 class ReadinessResponse(BaseModel):
     status: str          # "healthy" | "degraded" | "unhealthy"
@@ -49,11 +24,7 @@ class ReadinessResponse(BaseModel):
     version: str
     checked_at: str
 
-
-# ---------------------------------------------------------------------------
 # Individual dependency checks
-# ---------------------------------------------------------------------------
-
 
 async def _check_sqlite() -> Tuple[str, CheckResult]:
     """Verify the SQLite orders database is reachable and not corrupted."""
@@ -80,7 +51,6 @@ async def _check_sqlite() -> Tuple[str, CheckResult]:
     except Exception as exc:
         return "sqlite", CheckResult(status="failed", detail=str(exc))
 
-
 async def _check_vector_store() -> Tuple[str, CheckResult]:
     """Verify ChromaDB is reachable by listing collections."""
     try:
@@ -98,7 +68,6 @@ async def _check_vector_store() -> Tuple[str, CheckResult]:
         )
     except Exception as exc:
         return "vector_store", CheckResult(status="failed", detail=str(exc))
-
 
 async def _check_redis() -> Tuple[str, CheckResult]:
     """
@@ -120,7 +89,6 @@ async def _check_redis() -> Tuple[str, CheckResult]:
             detail=f"Redis unreachable ({exc}); in-memory fallback active.",
         )
 
-
 async def _check_llm() -> Tuple[str, CheckResult]:
     """
     HEAD request to the Ollama base URL.
@@ -141,11 +109,7 @@ async def _check_llm() -> Tuple[str, CheckResult]:
             detail=f"Ollama unreachable ({exc}); Groq fallback active.",
         )
 
-
-# ---------------------------------------------------------------------------
 # Endpoints
-# ---------------------------------------------------------------------------
-
 
 @router.get(
     "",
@@ -155,7 +119,6 @@ async def _check_llm() -> Tuple[str, CheckResult]:
 async def health_liveness() -> Dict[str, str]:
     return {"status": "healthy"}
 
-
 @router.get(
     "/live",
     summary="Liveness probe (alias)",
@@ -163,7 +126,6 @@ async def health_liveness() -> Dict[str, str]:
 )
 async def health_live() -> Dict[str, str]:
     return {"status": "healthy"}
-
 
 @router.get(
     "/ready",
