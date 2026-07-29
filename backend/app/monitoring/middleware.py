@@ -77,8 +77,8 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
 
         ACTIVE_SESSIONS_GAUGE.dec()
 
-                # 5. Structured JSON log
-                log_record = {
+        # 5. Structured JSON log
+        log_record = {
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "level": "INFO" if status_code < 500 else "ERROR",
             "request_id": request_id,
@@ -91,8 +91,8 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
         }
         logger.info("[Request] %s", json.dumps(log_record))
 
-                # 6. Inject response headers
-                response.headers["X-Request-ID"] = request_id
+        # 6. Inject response headers
+        response.headers["X-Request-ID"] = request_id
         response.headers["X-Response-Time-Ms"] = str(round(duration_s * 1000, 2))
 
         return response
