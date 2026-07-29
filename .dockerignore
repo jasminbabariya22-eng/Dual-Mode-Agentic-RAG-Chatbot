@@ -20,6 +20,4 @@ coverage.xml
 *.cover
 *.log
 .DS_Store
-chroma_db/
-orders.db
 Dataset/
